@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+
+storage/*
+!storage/.gitkeep
+data/docs/*
+!data/docs/.gitkeep
+
+.pytest_cache/
+.idea/
+.vscode/
+.DS_Store
+.workbuddy/
