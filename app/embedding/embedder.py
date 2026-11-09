@@ -43,8 +43,15 @@ class Embedder:
 
     @property
     def dim(self) -> int:
-        """向量维度。bge-small-zh-v1.5 是 512。存索引时要记下来做校验。"""
-        return int(self.model.get_sentence_embedding_dimension())
+        """向量维度。bge-small-zh-v1.5 是 512。存索引时要记下来做校验。
+
+        get_sentence_embedding_dimension 在新版 sentence-transformers 里改名为
+        get_embedding_dimension；getattr 兜底两个版本都能跑。
+        """
+        getter = getattr(self.model, "get_embedding_dimension", None) or getattr(
+            self.model, "get_sentence_embedding_dimension"
+        )
+        return int(getter())
 
     def encode_documents(self, texts: list[str]) -> np.ndarray:
         """批量编码文档片段，返回 (N, dim) 的 float32 数组。"""
