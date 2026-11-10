@@ -53,19 +53,60 @@ def _read_docx(path: Path) -> tuple[str, list[str]]:
 
 
 def _read_pdf(path: Path) -> tuple[str, list[str]]:
-    """读 PDF。TODO: 你来实现。
+    """读 PDF：把每一页的文字抽出来，拼成一整段。
 
-    提示（按顺序想，别一次全做）：
-    1. 用 pypdf.PdfReader 打开，遍历 pages，每页 extract_text()
-    2. 页之间用 "\\n\\n" 连接 —— 为什么？因为分块器把换行当段落边界
-    3. 页码信息很有价值：把 {"pages": n} 塞进 metadata，回答时可以标"第 3 页"
-    4. 关键判断：如果全文字符数 < 页数 * 20，几乎可以断定是扫描版
-       （图片型 PDF 抽不出文字），此时要往 warnings 里加一条，不要静默返回空串
-       —— 静默失败是工程里最贵的 bug
-
-    思考题：扫描版 PDF 怎么处理？（提示：OCR，但那是另一个故事，先记录告警即可）
+    怎么读这个函数：
+    1. 它收什么、给什么 —— 收一个文件路径，给「整段文字 + 告警清单」
+    2. 中间那几个变量各装什么 —— warnings 装问题，pieces 装每页的文字
+    3. 循环在重复做什么 —— 一页一页地取字
     """
-    raise NotImplementedError("实现 _read_pdf")
+    from pypdf import PdfReader
+
+    warnings = []                    # 空列表，准备装"出了什么问题"的记录
+    reader = PdfReader(str(path))    # 打开这份 PDF
+    pages = reader.pages             # 所有页
+    page_count = len(pages)          # 一共几页
+
+    pieces = []                      # 准备装每一页取出来的文字
+
+    # 一页一页处理。i 是这页的编号，从 0 开始
+    for i in range(page_count):
+        page = pages[i]
+
+        # ┌──────────────────────────────────────────────────────┐
+        # │ 填空 A：取出这一页的文字，存进 text                       │
+        # │   提示：取文字的方法是 page.extract_text()               │
+        # │        注意是 page 的方法，不是 reader 的                 │
+        # └──────────────────────────────────────────────────────┘
+        text = page.extract_text()
+
+        # 抽不到字时它会给 None，兜成空字符串，免得后面崩
+        if text is None:
+            text = ""
+
+        # 去掉首尾的空白和换行
+        text = text.strip()
+
+        # 只有这页真的有字，才拼进结果
+        if text != "":
+            pieces.append("[第" + str(i + 1) + "页]\n" + text)
+
+    # 把每页的文字用空行连起来，变成一整段
+    all_text = "\n\n".join(pieces)
+
+    # ┌──────────────────────────────────────────────────────┐
+    # │ 填空 B：判断它是不是扫描件                                │
+    # │   条件：平均每页不到 20 个字                              │
+    # │   平均每页字数 = 总字数 ÷ 页数                            │
+    # │   把 False 换成你这个条件                                 │
+    # └──────────────────────────────────────────────────────┘
+    if len(all_text)/page_count<20:
+        warnings.append(
+            path.name + "：几乎抽不到文字（平均每页不足 20 字），"
+            "很可能是扫描件或图片型 PDF，需要 OCR 才能读取"
+        )
+
+    return all_text, warnings
 
 
 def load_file(path: Path, root: Path | None = None) -> Document:
